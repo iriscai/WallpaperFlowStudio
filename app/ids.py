@@ -10,7 +10,7 @@ PREFIXES = {
     "reference_article": "article", "reference_copy": "copy", "prompt": "prompt",
     "domain": "domain", "theme": "theme", "image_config_group": "image_config",
     "model_profile": "model", "output_target": "output", "rule": "rule",
-    "node": "node", "edge": "edge",
+    "node": "node", "edge": "edge", "work": "work",
 }
 
 

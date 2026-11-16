@@ -40,6 +40,13 @@ const S = {
   executionSaving: false,
   lastTrace: null,
   results: [],
+  works: [],
+  workChecked: [],
+  workQuery: "",
+  workDate: "",
+  workStatus: "",
+  workSort: "date-desc",
+  workDownloading: false,
   resultChecked: [],
   resultQuery: "",
   resultGroupFilter: "",
@@ -196,6 +203,7 @@ function activeRecord() {
 }
 
 const PAGES = {
+  works: ["WORKS", "作品列表", "按日期整理成品，搜索、多选下载，记录每件作品的下载状态。"],
   flow: ["FLOWS", "流程", "点一条流程进入编辑。"],
   elements: ["LIBRARY", "元素库", "用上方按钮添加参考图、文章、提示词、规则或 API 配置。点一行可以再编辑。"],
   runs: ["RUNS", "运行记录", "查看每次执行的节点结果、文件夹和 ZIP。"],
@@ -417,6 +425,11 @@ function render() {
     renderResults();
     return;
   }
+  if (S.tab === "works") {
+    main.innerHTML = '<div class="works-page" id="works"></div>';
+    renderWorks();
+    return;
+  }
   if (!editingCanvas) {
     main.innerHTML = '<div class="element-page"><div id="batch-status-list" class="batch-status-list" aria-live="polite"></div><div class="list-toolbar" id="flow-toolbar"></div><div class="table-panel flow-list" id="flow-table"></div></div>';
     renderFlowToolbar();
@@ -455,6 +468,10 @@ function render() {
 
 function renderTop() {
   const box = document.getElementById("top-actions");
+  if (S.tab === "works") {
+    box.innerHTML = `<button type="button" class="btn" data-act="reload-works" ${S.workDownloading ? 'disabled' : ''}>刷新作品</button>`;
+    return;
+  }
   if (S.tab === "execution") {
     box.innerHTML = `<button type="button" class="btn" data-act="reset-execution-config" ${S.executionSaving ? "disabled" : ""}>恢复默认值</button><button type="button" class="btn primary" data-act="save-execution-config" ${S.executionSaving ? "disabled" : ""}>${S.executionSaving ? "保存中…" : "保存配置"}</button>`;
     return;
@@ -1023,10 +1040,11 @@ function nodeInspector(node) {
     extra += '<p class="hint">结果库里的每张图用 UUID 命名，分组和标签等于本次随机带上的那张参考图。</p>';
   }
   if (node.type === "work.generate") {
-    extra += field("作品名称模板（文件夹和 ZIP）", `<input data-bind="node.nameTemplate" value="${esc(params.nameTemplate || '${title}')}" spellcheck="false" placeholder="\${title}">`);
-    extra += field("保存路径", `<input data-bind="node.directory" value="${esc(params.directory || 'outputs/works')}" spellcheck="false" placeholder="outputs/works 或 D:\\作品">`);
+    extra += field("作品名称模板（文件夹和 ZIP）", `<input data-bind="node.nameTemplate" value="${esc(params.nameTemplate || 'ins${title}${ending}')}" spellcheck="false" placeholder="ins简约头像 有自己的小情绪\${ending}">`);
+    extra += field("保存根目录", `<input data-bind="node.directory" value="${esc(params.directory || 'outputs/works')}" spellcheck="false" placeholder="outputs/works 或 D:\\作品">`);
     extra += '<div class="row"><button type="button" class="btn" data-act="pick-output-dir" data-target="node">选择文件夹</button></div>';
-    extra += '<p class="hint">将入口 images 中的全部图片保存到作品文件夹，并生成同名 ZIP。名称支持 ${title}、{{title}} 和其他携带参数；重名时自动追加编号。</p>';
+    extra += field("日期文件夹内的分类（可选）", `<input data-bind="node.subdirectory" value="${esc(params.subdirectory || '')}" spellcheck="false" placeholder="例如 壁纸/风景，留空则直接保存作品">`);
+    extra += '<p class="hint">自动保存为：保存根目录 / YYYY-MM-DD / 分类 / 作品。当天的作品集中在同一个日期文件夹，可整体打包。命名示例：ins简约头像 有自己的小情绪${ending}。${ending} 会按每次任务选用「｜可直存」「｜自取」「｜喜欢就存」「·换上试试」等不同收尾。文件夹与 ZIP 同名；重名自动追加编号。</p>';
   }
   if (node.type === "result.direct") {
     const groups = [...new Set((S.results || []).map((item) => item.group || "").filter(Boolean))];
@@ -1249,6 +1267,7 @@ function productBits(exportData) {
   const output = data.output || {};
   if (output.folder || output.zip) {
     parts.push(`<div class="row">
+      ${output.collection ? `<button type="button" data-act="open-path" data-path="${encodeURIComponent(output.collection)}">打开日期文件夹</button><span class="hint">${esc(output.collection)}</span>` : ""}
       ${output.folder ? `<button type="button" data-act="open-path" data-path="${encodeURIComponent(output.folder)}">打开文件夹</button><span class="hint">${esc(output.folder)}</span>` : ""}
       ${output.zip ? `<button type="button" data-act="open-path" data-path="${encodeURIComponent(output.zip)}">打开 ZIP</button><span class="hint">${esc(output.zip)}</span>` : ""}
     </div>`);
@@ -1663,6 +1682,7 @@ function renderRuns() {
     const ok = run.status === "succeeded";
     const folder = run.trace?.output?.folder || "";
     const zip = run.trace?.output?.zip || "";
+    const collection = run.trace?.output?.collection || "";
     return `<tr>
       <td><input type="checkbox" data-act="check-run" data-id="${esc(run.id)}" ${checked.has(run.id) ? "checked" : ""}></td>
       <td title="${esc(run.id)}">${esc(S.flows.find((flow) => flow.id === run.flowId)?.name || run.flowId || "未关联流程")}</td>
@@ -1674,6 +1694,7 @@ function renderRuns() {
         <button type="button" class="btn" data-act="edit-run" data-id="${esc(run.id)}">编辑</button>
         <button type="button" class="btn danger" data-act="delete-run" data-id="${esc(run.id)}">删除</button>
         ${folder ? `<button type="button" class="btn" data-act="open-path" data-path="${encodeURIComponent(folder)}">文件夹</button>` : ""}
+        ${collection ? `<button type="button" class="btn" data-act="open-path" data-path="${encodeURIComponent(collection)}">日期文件夹</button>` : ""}
         ${zip ? `<button type="button" class="btn" data-act="open-path" data-path="${encodeURIComponent(zip)}">ZIP</button>` : ""}
       </td>
     </tr>`;
@@ -1799,6 +1820,130 @@ async function setResultStatus(ids, worked) {
   await loadResults();
   renderResults();
   setBanner(worked ? "已标为已出作品。" : "已标为未出作品。", "ok");
+}
+
+async function loadWorks() {
+  const data = await api('GET', '/api/works');
+  S.works = data.works || [];
+  const existing = new Set(S.works.map(work => work.id));
+  S.workChecked = S.workChecked.filter(id => existing.has(id));
+}
+
+function filteredWorks() {
+  const query = S.workQuery.trim().toLowerCase();
+  const rows = S.works.filter(work => {
+    if (S.workDate && work.date !== S.workDate) return false;
+    if (S.workStatus && work.downloaded !== (S.workStatus === 'downloaded')) return false;
+    return !query || [work.title, work.flowName, work.category, work.date].join(' ').toLowerCase().includes(query);
+  });
+  return rows.sort((a, b) => (new Date(a.createdAt) - new Date(b.createdAt) || a.id.localeCompare(b.id)) * (S.workSort === 'date-asc' ? 1 : -1));
+}
+
+function workSize(bytes) {
+  return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.ceil(bytes / 1024) + ' KB';
+}
+
+function renderWorks() {
+  const root = document.getElementById('works');
+  if (!root) return;
+  const restoreFocus = restoreListFocus(root);
+  const rows = filteredWorks();
+  const checked = new Set(S.workChecked);
+  const downloaded = S.works.filter(work => work.downloaded).length;
+  const dates = [...new Set(S.works.map(work => work.date))].sort().reverse();
+  const busy = S.workDownloading ? 'disabled' : '';
+  const selected = rows.filter(work => checked.has(work.id)).length;
+  let previous = '';
+  const body = rows.map(work => {
+    let heading = '';
+    if (work.date !== previous) {
+      const group = rows.filter(item => item.date === work.date);
+      heading = `<tr class="work-date-row"><td><input type="checkbox" id="work-date-${esc(work.date)}" data-act="check-work-date" data-date="${esc(work.date)}" aria-label="选择 ${esc(work.date)} 的筛选作品" ${busy}></td><td colspan="7"><strong>${esc(work.date)}</strong><span>${group.length} 件作品</span></td></tr>`;
+      previous = work.date;
+    }
+    return heading + `<tr class="${checked.has(work.id) ? 'work-selected' : ''}">
+      <td><input type="checkbox" id="work-row-${esc(work.id)}" data-act="check-work" data-id="${esc(work.id)}" aria-label="选择 ${esc(work.title)}" ${checked.has(work.id) ? 'checked' : ''} ${busy}></td>
+      <td><div class="work-cover">${work.previewUrl ? `<img src="${esc(work.previewUrl)}" loading="lazy" alt="作品封面">` : '<span>无预览</span>'}</div></td>
+      <td class="work-title-cell"><strong>${esc(work.title)}</strong><small>${esc(work.flowName)}</small>${!work.available ? '<span class="work-missing">文件缺失</span>' : ''}</td>
+      <td class="work-time">${esc(work.date)}<small>${esc(new Date(work.createdAt).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}))}</small></td>
+      <td>${esc(work.category || '未分类')}</td>
+      <td>${work.imageCount} 张<small class="work-secondary">${workSize(work.bytes)}</small></td>
+      <td><span class="pill ${work.downloaded ? 'green' : 'work-pending'}" title="${work.downloadedAt ? esc('下载于 ' + new Date(work.downloadedAt).toLocaleString()) : '尚未下载'}">${work.downloaded ? '已下载' : '未下载'}</span></td>
+      <td><div class="work-row-actions"><button type="button" class="btn" data-act="download-work" data-id="${esc(work.id)}" ${S.workDownloading || !work.available ? 'disabled' : ''}>下载</button>${work.folder ? `<button type="button" class="btn" data-act="open-path" data-path="${encodeURIComponent(work.folder)}">文件夹</button>` : ''}<button type="button" class="work-status-toggle" data-act="toggle-work-status" data-id="${esc(work.id)}" ${busy}>${work.downloaded ? '标为未下载' : '标为已下载'}</button></div></td>
+    </tr>`;
+  }).join('');
+  root.innerHTML = `
+    <div class="work-overview"><div><span>全部作品</span><strong>${S.works.length}<small>件</small></strong></div><div><span>待下载</span><strong>${S.works.length - downloaded}<small>件</small></strong></div><div><span>已下载</span><strong>${downloaded}<small>件</small></strong></div><p>每件作品保存为一个 ZIP<br>多选后合并打包，直接包含作品文件夹</p></div>
+    <div class="list-toolbar work-filters">
+      <input id="work-search" type="search" data-work-filter="workQuery" value="${esc(S.workQuery)}" placeholder="搜索作品名称、分类或流程" aria-label="搜索作品">
+      <select id="work-date-filter" data-work-filter="workDate" aria-label="筛选作品日期"><option value="">全部日期</option>${dates.map(date => `<option value="${esc(date)}" ${S.workDate === date ? 'selected' : ''}>${esc(date)}</option>`).join('')}</select>
+      <select id="work-status-filter" data-work-filter="workStatus" aria-label="筛选下载状态"><option value="">全部下载状态</option><option value="pending" ${S.workStatus === 'pending' ? 'selected' : ''}>未下载</option><option value="downloaded" ${S.workStatus === 'downloaded' ? 'selected' : ''}>已下载</option></select>
+      <select id="work-sort" data-work-filter="workSort" aria-label="作品日期排序"><option value="date-desc" ${S.workSort === 'date-desc' ? 'selected' : ''}>日期从新到旧</option><option value="date-asc" ${S.workSort === 'date-asc' ? 'selected' : ''}>日期从旧到新</option></select>
+      <button type="button" class="btn" data-act="reset-work-filters">重置筛选</button>
+    </div>
+    <div class="work-selection"><div class="row"><button type="button" class="btn primary" data-act="download-selected-works" ${S.workDownloading || !checked.size ? 'disabled' : ''}>${S.workDownloading ? '正在打包并保存…' : '下载所选（' + checked.size + '）'}</button><button type="button" class="btn" data-act="select-work-results" ${busy}>全选筛选结果</button><button type="button" class="btn" data-act="clear-work-selection" ${busy}>取消勾选</button><button type="button" class="btn" data-act="mark-works-downloaded" ${!checked.size || S.workDownloading ? 'disabled' : ''}>标为已下载</button><button type="button" class="btn" data-act="mark-works-pending" ${!checked.size || S.workDownloading ? 'disabled' : ''}>标为未下载</button></div><span aria-live="polite">筛选 ${rows.length} / ${S.works.length} 件 · 已选 ${checked.size}${selected !== checked.size ? '（当前筛选内 ' + selected + '）' : ''}</span></div>
+    <div class="table-panel work-table"><table class="data-table"><thead><tr><th><input type="checkbox" id="work-all" data-act="check-all-works" aria-label="全选当前筛选作品" ${busy}></th><th>预览</th><th>作品名称</th><th>生成日期</th><th>分类</th><th>图片</th><th>下载状态</th><th>操作</th></tr></thead><tbody>${body || `<tr><td colspan="8" class="work-empty">${S.works.length ? '没有符合筛选条件的作品，试试其他关键词或重置筛选。' : '还没有生成作品。完成「生成作品」节点后，成品会自动出现在这里。'}</td></tr>`}</tbody></table></div>`;
+  const all = document.getElementById('work-all');
+  all.checked = rows.length > 0 && selected === rows.length;
+  all.indeterminate = selected > 0 && selected < rows.length;
+  root.querySelectorAll('[data-act="check-work-date"]').forEach(input => {
+    const group = rows.filter(item => item.date === input.dataset.date);
+    const count = group.filter(item => checked.has(item.id)).length;
+    input.checked = count === group.length;
+    input.indeterminate = count > 0 && count < group.length;
+  });
+  restoreFocus();
+}
+
+async function markWorks(ids, downloaded) {
+  if (!ids.length) return;
+  await api('POST', '/api/works/status', {ids, downloaded});
+  await loadWorks();
+  renderWorks();
+  setBanner(downloaded ? '已保存为已下载。' : '已保存为未下载。', 'ok');
+}
+
+async function downloadWorks(ids) {
+  if (S.workDownloading || !ids.length) return;
+  const selected = S.works.filter(work => ids.includes(work.id));
+  if (selected.length !== ids.length || selected.some(work => !work.available)) throw Error('所选作品有文件缺失，请刷新并取消勾选缺失项。');
+  const filename = selected.length === 1 ? selected[0].title + '.zip' : '壁纸作品-' + (S.workDate || new Date().toLocaleDateString('sv-SE')) + '.zip';
+  S.workDownloading = true;
+  renderWorks(); renderTop();
+  try {
+    let saved = false;
+    if (window.desktop?.downloadWorks) {
+      const result = await window.desktop.downloadWorks({ids, filename});
+      if (result.canceled) { setBanner('已取消下载，下载状态保持不变。', ''); return; }
+      saved = result.saved;
+      setBanner(result.statusSaved ? '作品已保存，下载状态已更新。' : '作品已保存，状态未写入，请手动标为已下载。', result.statusSaved ? 'ok' : 'bad');
+    } else {
+      const handle = window.showSaveFilePicker ? await window.showSaveFilePicker({suggestedName: filename, types:[{description:'ZIP 压缩包', accept:{'application/zip':['.zip']}}]}) : null;
+      const response = await fetch('/api/works/download', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids})});
+      if (!response.ok) throw Error((await response.json()).error || '作品打包失败');
+      if (handle) {
+        const writable = await handle.createWritable();
+        await response.body.pipeTo(writable);
+        await api('POST', '/api/works/status', {ids, downloaded:true});
+        saved = true;
+        setBanner('作品已保存，下载状态已更新。', 'ok');
+      } else {
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url; link.download = filename; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        setBanner('下载已发起。保存后可手动标为已下载。', '');
+      }
+    }
+    if (saved) S.workChecked = S.workChecked.filter(id => !ids.includes(id));
+    await loadWorks();
+  } catch (error) {
+    if (error.name === 'AbortError') setBanner('已取消下载，下载状态保持不变。', '');
+    else setBanner(error.message, 'bad');
+  } finally {
+    S.workDownloading = false;
+    renderWorks(); renderTop();
+  }
 }
 
 async function loadResults() {
@@ -2055,6 +2200,18 @@ async function loadRuns() {
 }
 
 function onField(event) {
+  if (event.target.dataset.workFilter) {
+    S[event.target.dataset.workFilter] = event.target.value;
+    renderWorks();
+    return;
+  }
+  if (['check-work', 'check-all-works', 'check-work-date'].includes(event.target.dataset.act)) {
+    const input = event.target;
+    const ids = input.dataset.act === 'check-work' ? [input.dataset.id] : filteredWorks().filter(work => input.dataset.act !== 'check-work-date' || work.date === input.dataset.date).map(work => work.id);
+    S.workChecked = input.checked ? [...new Set([...S.workChecked, ...ids])] : S.workChecked.filter(id => !ids.includes(id));
+    renderWorks();
+    return;
+  }
   if (event.target.dataset.executionKey) {
     S.executionDraft[event.target.dataset.executionKey] = event.target.value === "" ? "" : Number(event.target.value);
     document.getElementById("execution-config-error").textContent = "";
@@ -2300,6 +2457,11 @@ function onField(event) {
     touch();
     return;
   }
+  if (bind === "node.subdirectory" && node) {
+    node.params.subdirectory = el.value;
+    touch();
+    return;
+  }
   if (bind === "node.sizePreset" && node) {
     const previous = S.imageSizePresets.find(item => item.id === imageSizePreset(node));
     node.params.sizePreset = el.value;
@@ -2539,6 +2701,9 @@ async function onClick(event) {
     if (S.tab === "results") {
       try { await loadResults(); } catch (error) { setBanner(error.message, "bad"); }
     }
+    if (S.tab === "works") {
+      try { await loadWorks(); } catch (error) { setBanner(error.message, "bad"); }
+    }
     render();
     return;
   }
@@ -2553,6 +2718,21 @@ async function onClick(event) {
     return;
   }
   const action = act.dataset.act;
+  if (action === 'reload-works') { await loadWorks(); renderWorks(); return; }
+  if (action === 'reset-work-filters') {
+    S.workQuery = ''; S.workDate = ''; S.workStatus = ''; S.workSort = 'date-desc'; renderWorks(); return;
+  }
+  if (action === 'select-work-results') { S.workChecked = [...new Set([...S.workChecked, ...filteredWorks().map(work => work.id)])]; renderWorks(); return; }
+  if (action === 'clear-work-selection') { S.workChecked = []; renderWorks(); return; }
+  if (action === 'download-work') return downloadWorks([act.dataset.id]);
+  if (action === 'download-selected-works') return downloadWorks([...S.workChecked]);
+  if (action === 'mark-works-downloaded') return markWorks([...S.workChecked], true);
+  if (action === 'mark-works-pending') return markWorks([...S.workChecked], false);
+  if (action === 'toggle-work-status') {
+    const work = S.works.find(work => work.id === act.dataset.id);
+    if (work) return markWorks([work.id], !work.downloaded);
+    return;
+  }
   if (action === "open-execution-config") {
     closeBatchRun(); S.tab = "execution"; render(); return;
   }

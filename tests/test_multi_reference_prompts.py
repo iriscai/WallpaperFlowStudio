@@ -184,6 +184,7 @@ class MultiReferenceTests(unittest.TestCase):
         library = blank_node("file.output", new_id("node"), 600, 0)
         library["params"].update(saveAs="library", keepInlet=True)
         work = blank_node("work.generate", new_id("node"), 900, 0)
+        work["params"]["nameTemplate"] = "${title}"
         nodes = [refs, image, library, work]
         edges = []
         for source, target, fields in ((refs, image, ["prompts", "referenceUsed", "referencesUsed"]),

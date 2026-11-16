@@ -179,6 +179,14 @@ class Store:
                     error TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_runs_flow ON runs(flow_id, started_at);
+                CREATE TABLE IF NOT EXISTS works (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    node_id TEXT NOT NULL,
+                    metadata TEXT NOT NULL,
+                    downloaded_at TEXT,
+                    UNIQUE(run_id, node_id)
+                );
                 CREATE TABLE IF NOT EXISTS settings (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
@@ -1128,7 +1136,7 @@ class Store:
             except json.JSONDecodeError:
                 continue
             output = trace.get("output") or {}
-            for key in ("folder", "zip"):
+            for key in ("folder", "zip", "collection"):
                 if output.get(key):
                     found.append(output[key])
         return found

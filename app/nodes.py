@@ -10,6 +10,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 
 from app.carry import FlowError, apply_rule, get_path, render
@@ -20,6 +21,7 @@ from app.pngutil import fit_size, write_gradient
 from app.providers import KeyPool, chat, generate_image
 
 MAX_IMAGES = 12
+WORK_TITLE_ENDINGS = ("｜可直存", "｜自取", "｜喜欢就存", "·换上试试", "｜拿图随意", "·存一组")
 
 
 @dataclass
@@ -550,13 +552,24 @@ def run_work(ctx: Ctx) -> NodeResult:
         if not source.is_file():
             raise FlowError(f"第 {index} 张图片文件不存在：{raw}")
         sources.append(source)
+    now = datetime.now()
     context = copy.deepcopy(ctx.inlet)
-    context.update(date=datetime.now().strftime("%Y%m%d"), flowName=ctx.flow.get("name") or "flow")
+    ending_index = int(sha256(ctx.run_id.encode("utf-8")).hexdigest()[:8], 16) % len(WORK_TITLE_ENDINGS)
+    context.update(date=now.strftime("%Y%m%d"), flowName=ctx.flow.get("name") or "flow",
+                   ending=WORK_TITLE_ENDINGS[ending_index])
     raw_title = render(str(params.get("nameTemplate") or "${title}"), context, strict=True).strip()
     if not raw_title:
         raise FlowError("作品名称为空。请检查携带参数，或改用参考图名称作为 title。")
     title = _work_name(raw_title)
-    root = resolve_path(str(params.get("directory") or "outputs/works"))
+    work_date = now.strftime("%Y-%m-%d")
+    collection = resolve_path(str(params.get("directory") or "outputs/works")) / work_date
+    category = str(params.get("subdirectory") or "").strip().replace("\\", "/")
+    subdirectory = Path(category)
+    if subdirectory.is_absolute() or subdirectory.drive or ".." in subdirectory.parts or re.search(r'[<>:"|?*\x00-\x1f]', category):
+        raise FlowError("分类子目录必须是相对路径，不能包含 .. 或文件名非法字符。")
+    root = collection / subdirectory
+    if not root.resolve().is_relative_to(collection.resolve()):
+        raise FlowError("分类子目录不能越出日期文件夹。")
     root.mkdir(parents=True, exist_ok=True)
     index = 1
     while True:
@@ -588,8 +601,9 @@ def run_work(ctx: Ctx) -> NodeResult:
             zip_path.unlink(missing_ok=True)
         raise
     return NodeResult(
-        {"output": {"title": folder_name, "folder": str(folder), "zip": str(zip_path), "files": files}},
-        "files", f"已生成作品「{folder_name}」，共 {len(files)} 张图片，已打包 ZIP。",
+        {"output": {"title": folder_name, "folder": str(folder), "zip": str(zip_path), "files": files,
+                    "collection": str(collection), "date": work_date}},
+        "files", f"已生成作品「{folder_name}」，共 {len(files)} 张图片，已归档至 {work_date} 日期文件夹并打包 ZIP。",
     )
 
 

@@ -4,6 +4,7 @@ const fs = require("fs");
 const net = require("net");
 const path = require("path");
 const readline = require("readline");
+const { saveWorks } = require("./desktop/work-download.cjs");
 
 let win = null;
 let backend = null;
@@ -112,6 +113,21 @@ ipcMain.handle("pick-directory", async () => {
   });
   if (result.canceled || !result.filePaths[0]) return "";
   return result.filePaths[0];
+});
+
+ipcMain.handle("download-works", async (_event, request) => {
+  if (!readyPort) throw new Error("本机服务尚未就绪");
+  return saveWorks(request, {
+    baseUrl: `http://127.0.0.1:${readyPort}`,
+    choosePath: async (filename) => {
+      const result = await dialog.showSaveDialog(win, {
+        title: "保存作品 ZIP",
+        defaultPath: path.join(app.getPath("downloads"), filename),
+        filters: [{ name: "ZIP 压缩包", extensions: ["zip"] }],
+      });
+      return result.canceled ? "" : result.filePath;
+    },
+  });
 });
 
 if (ownsInstance) {

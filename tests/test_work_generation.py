@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,7 +16,7 @@ from app.carry import FlowError, apply_carry, render
 from app.catalog import blank_node
 from app.engine import Engine
 from app.ids import new_id
-from app.nodes import Ctx, run_work
+from app.nodes import Ctx, WORK_TITLE_ENDINGS, run_work
 from app.store import Store
 
 
@@ -65,6 +66,7 @@ class WorkGenerationTests(unittest.TestCase):
         middle = blank_node("rule.apply", new_id("node"), 600, 0)
         middle["params"]["keepInlet"] = False
         work = blank_node("work.generate", new_id("node"), 900, 0)
+        work["params"]["nameTemplate"] = "${title}"
         nodes = [refs, image, middle, work]
         edges = []
         for source, target, field in zip(nodes, nodes[1:], ("prompts", "images", "images")):
@@ -97,6 +99,8 @@ class WorkGenerationTests(unittest.TestCase):
                 self.assertNotIn("referenceUsed", traces[nodes[1]["id"]]["export"])
                 self.assertNotIn("prompts", traces[nodes[1]["id"]]["export"])
                 output = traces[nodes[-1]["id"]]["export"]["output"]
+                self.assertEqual(run["trace"]["output"]["collection"], output["collection"])
+                self.assertIn(output["collection"], self.store.output_dirs())
                 self.assertEqual(Path(output["folder"]).name, expected)
                 self.assertEqual(Path(output["zip"]).name, expected + ".zip")
                 with zipfile.ZipFile(output["zip"]) as archive:
@@ -249,7 +253,7 @@ class WorkGenerationTests(unittest.TestCase):
             with self.subTest(title=title):
                 output = run_work(self.context(title)).export["output"]
                 self.assertEqual(output["title"], expected)
-                self.assertEqual(Path(output["folder"]).resolve().parent, self.root / "outputs" / "works")
+                self.assertEqual(Path(output["folder"]).resolve().parent, self.root / "outputs" / "works" / output["date"])
         with self.assertRaises(FlowError):
             run_work(self.context("..."))
 
@@ -259,7 +263,65 @@ class WorkGenerationTests(unittest.TestCase):
                 with patch(operation, side_effect=OSError("模拟写入失败")):
                     with self.assertRaisesRegex(OSError, "模拟写入失败"):
                         run_work(self.context())
-                self.assertEqual(list((self.root / "outputs" / "works").iterdir()), [])
+                self.assertFalse(any(p.is_file() for p in (self.root / "outputs" / "works").rglob("*")))
+
+    def test_categories_share_one_date_folder_and_preserve_work_zip_layout(self):
+        with patch("app.nodes.datetime") as clock:
+            clock.now.return_value = datetime(2026, 11, 16, 22, 30)
+            first = run_work(self.context(subdirectory="壁纸/风景")).export["output"]
+            second = run_work(self.context(subdirectory="头像\\萌系")).export["output"]
+            flat = run_work(self.context("未分类作品")).export["output"]
+        collection = self.root / "outputs" / "works" / "2026-11-16"
+        self.assertEqual(first["collection"], str(collection))
+        self.assertEqual(second["collection"], first["collection"])
+        self.assertEqual(Path(first["folder"]).parent, collection / "壁纸" / "风景")
+        self.assertEqual(Path(second["folder"]).parent, collection / "头像" / "萌系")
+        self.assertEqual(Path(flat["folder"]).parent, collection)
+        with zipfile.ZipFile(second["zip"]) as archive:
+            self.assertEqual(archive.namelist(), ["作品名称/01.png", "作品名称/02.jpg"])
+
+    def test_next_day_uses_new_collection_and_keeps_compact_name_template_date(self):
+        outputs = []
+        with patch("app.nodes.datetime") as clock:
+            for day in (16, 17):
+                clock.now.return_value = datetime(2026, 11, day, 0, 1)
+                outputs.append(run_work(self.context()).export["output"])
+            dated = run_work(self.context(nameTemplate="${title}-${date}")).export["output"]
+        self.assertNotEqual(outputs[0]["collection"], outputs[1]["collection"])
+        self.assertEqual([o["title"] for o in outputs], ["作品名称", "作品名称"])
+        self.assertEqual(dated["title"], "作品名称-20261117")
+        self.assertTrue(Path(outputs[0]["zip"]).is_file())
+
+    def test_invalid_category_cannot_escape_date_folder_or_create_outputs(self):
+        for category in ("../outside", "壁纸/../../outside", "C:\\outside", "/outside", "壁纸/非法*分类"):
+            with self.subTest(category=category), self.assertRaises(FlowError):
+                run_work(self.context(subdirectory=category))
+        self.assertFalse((self.root / "outputs").exists())
+
+    def test_ins_template_uses_varied_safe_endings_in_folder_and_zip(self):
+        templates = blank_node("work.generate", new_id("node"), 0, 0)["params"]
+        self.assertEqual(templates["nameTemplate"], "ins${title}${ending}")
+        endings = set()
+        for index in range(24):
+            ctx = self.context("简约头像 有自己的小情绪", **templates)
+            ctx.run_id = f"run-ending-{index}"
+            output = run_work(ctx).export["output"]
+            self.assertTrue(output["title"].startswith("ins简约头像 有自己的小情绪"))
+            ending = next((ending for ending in WORK_TITLE_ENDINGS if ending in output["title"]), None)
+            self.assertIsNotNone(ending)
+            endings.add(ending)
+            self.assertEqual(Path(output["zip"]).stem, Path(output["folder"]).name)
+            with zipfile.ZipFile(output["zip"]) as archive:
+                self.assertEqual(archive.namelist(), [output["title"] + "/01.png", output["title"] + "/02.jpg"])
+                self.assertEqual(archive.read(archive.namelist()[0]), self.images[0].read_bytes())
+        self.assertEqual(endings, set(WORK_TITLE_ENDINGS))
+
+    def test_custom_ins_caption_and_ending_do_not_change_for_same_run(self):
+        params = {"nameTemplate": "ins简约头像 有自己的小情绪${ending}"}
+        first = self.context(**params)
+        second = self.context(directory="outputs/another", **params)
+        second.run_id = first.run_id
+        self.assertEqual(run_work(first).export["output"]["title"], run_work(second).export["output"]["title"])
 
     def test_reference_article_only_has_no_implicit_image_parameter(self):
         article = self.element("reference_article", "文章", {"body": "参考正文"})

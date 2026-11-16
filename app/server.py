@@ -29,6 +29,7 @@ from app.schedule import normalize_schedule
 from app.seed import seed_if_empty
 from app.store import Store
 from app.tables import export_table, import_table
+from app.works import list_works, set_download_status, work_download, work_preview
 
 WEB_ROOT = PROJECT_ROOT / "web"
 MAX_JSON = 20_000_000
@@ -130,6 +131,36 @@ def handle(handler: BaseHTTPRequestHandler, store: Store, engine: Engine, batche
             return send_json(handler, 200, {"batch": batches.cancel(path.split("/")[3])})
         if method == "GET" and path == "/api/bootstrap":
             return send_json(handler, 200, bootstrap(store))
+        if method == 'GET' and path == '/api/works':
+            return send_json(handler, 200, {'works': list_works(store, (query.get('q') or [''])[0],
+                (query.get('status') or [''])[0], (query.get('date') or [''])[0], (query.get('sort') or ['date-desc'])[0])})
+        if method == 'POST' and path == '/api/works/status':
+            body = read_json(handler)
+            return send_json(handler, 200, {'updated': set_download_status(store, body.get('ids'), body.get('downloaded'))})
+        if method == 'GET' and path.startswith('/api/works/') and path.endswith('/preview'):
+            data = work_preview(store, path.split('/')[3])
+            handler.send_response(200)
+            handler.send_header('Content-Type', 'image/webp')
+            handler.send_header('Content-Length', str(len(data)))
+            handler.send_header('Cache-Control', 'no-store')
+            handler.end_headers()
+            handler.wfile.write(data)
+            return
+        if method == 'POST' and path == '/api/works/download':
+            body = read_json(handler)
+            with work_download(store, body.get('ids')) as (archive, filename):
+                archive.seek(0, 2)
+                length = archive.tell()
+                archive.seek(0)
+                handler.send_response(200)
+                handler.send_header('Content-Type', 'application/zip')
+                handler.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(filename))
+                handler.send_header('Content-Length', str(length))
+                handler.send_header('Cache-Control', 'no-store')
+                handler.end_headers()
+                import shutil
+                shutil.copyfileobj(archive, handler.wfile, length=1024 * 1024)
+            return
         if method == "POST" and path == "/api/reference-images/import-zip":
             length = int(handler.headers.get("Content-Length") or 0)
             if length <= 0 or length > MAX_ZIP_BYTES:

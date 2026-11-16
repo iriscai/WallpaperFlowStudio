@@ -3,4 +3,5 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("desktop", {
   window: (action) => ipcRenderer.invoke("window", action),
   pickDirectory: () => ipcRenderer.invoke("pick-directory"),
+  downloadWorks: (request) => ipcRenderer.invoke("download-works", request),
 });

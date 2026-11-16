@@ -162,6 +162,8 @@ class Engine:
                 output = export.get("output") if isinstance(export, dict) else None
                 if isinstance(output, dict) and (output.get("folder") or output.get("zip")):
                     trace["output"] = {"folder": output.get("folder") or "", "zip": output.get("zip") or ""}
+                    if output.get("collection"):
+                        trace["output"]["collection"] = output["collection"]
         except Exception as exc:
             status = "failed"
             error = str(exc) or exc.__class__.__name__
