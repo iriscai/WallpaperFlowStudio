@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>壁纸生创流程台</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-brand"><img class="mini-mark" src="/app-icon.svg" alt="" aria-hidden="true"> 壁纸生创流程台 <span class="version" id="version"></span></div>
+    <div class="window-buttons">
+      <button type="button" data-window="minimize" aria-label="最小化">—</button>
+      <button type="button" data-window="maximize" aria-label="最大化">□</button>
+      <button type="button" data-window="close" aria-label="关闭">×</button>
+    </div>
+  </div>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-mark" src="/app-icon.svg" alt="" aria-hidden="true">
+        <div><strong>壁纸生创流程台</strong><span>提示词 · 文章 · 图片</span></div>
+      </div>
+      <div class="nav-label">工作空间</div>
+      <nav aria-label="页面">
+        <button type="button" data-tab="flow" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="7" height="6" rx="1.5"></rect><rect x="14" y="14" width="7" height="6" rx="1.5"></rect><path d="M10 7h4a3 3 0 0 1 3 3v4"></path></svg>
+          流程
+        </button>
+        <div class="nav-block">
+          <button type="button" data-tab="elements">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>
+            元素库
+          </button>
+          <div class="nav-sub" id="element-nav"></div>
+        </div>
+        <button type="button" data-tab="results">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="7" height="7" rx="1.5"></rect><rect x="14" y="5" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="5" rx="1.5"></rect><rect x="14" y="14" width="7" height="5" rx="1.5"></rect></svg>
+          结果库
+        </button>
+        <button type="button" data-tab="runs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v5l3 2"></path></svg>
+          运行记录
+        </button>
+        <button type="button" data-tab="execution">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="9" cy="6" r="2" fill="currentColor"></circle><circle cx="15" cy="12" r="2" fill="currentColor"></circle><circle cx="8" cy="18" r="2" fill="currentColor"></circle></svg>
+          执行配置
+        </button>
+        <button type="button" data-tab="guide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 5.5h9a3 3 0 0 1 3 3V19H8.5A2.5 2.5 0 0 0 6 21.5z"></path><path d="M6 5.5A2.5 2.5 0 0 0 3.5 8V19"></path></svg>
+          使用说明
+        </button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="storage-status"><span class="status-dot"></span><span id="save-state">本地数据库</span></div>
+        <div class="sidebar-note">携带字段 · 可替换元素</div>
+      </div>
+    </aside>
+    <main>
+      <div class="topline">
+        <div id="breadcrumb">工作空间 <span>/</span> <b id="crumb-page">流程</b></div>
+        <div class="topline-right"><span class="provider-pill" id="provider-pill">未配置模型 · 本地草稿</span></div>
+      </div>
+      <header class="page-header">
+        <div>
+          <div class="eyebrow" id="page-eyebrow">FLOWS</div>
+          <h1 id="page-title">流程</h1>
+          <p id="page-description">点一条流程进入编辑。</p>
+        </div>
+        <div class="header-actions" id="top-actions"></div>
+      </header>
+      <div class="stage flow" id="main"></div>
+    </main>
+  </div>
+  <div id="flow-dialog" class="modal-backdrop hidden">
+    <div class="modal wide" role="dialog" aria-labelledby="flow-dialog-title">
+      <header>
+        <div>
+          <h2 id="flow-dialog-title">编辑流程资料</h2>
+          <p class="hint">这里改名称、分组、标签和字段。节点和连线请点「进入」。</p>
+        </div>
+        <button type="button" class="close-btn" data-act="close-flow-meta" aria-label="关闭">×</button>
+      </header>
+      <div id="flow-dialog-body"></div>
+      <p id="flow-dialog-error" class="form-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-act="close-flow-meta">取消</button>
+        <button type="button" class="btn primary" data-act="save-flow-meta">保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="flow-copy-dialog" class="modal-backdrop hidden">
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="flow-copy-title">
+      <header>
+        <div><h2 id="flow-copy-title">复制流程</h2><p class="hint">复制节点、连线、导入元素和流程资料。</p></div>
+        <button type="button" class="close-btn" data-act="close-flow-copy" aria-label="关闭">×</button>
+      </header>
+      <div id="flow-copy-body">
+        <label class="field"><span>要复制的流程</span><select id="flow-copy-source"></select></label>
+        <label class="field"><span>每条复制份数</span><input id="flow-copy-count" type="number" min="1" max="1000" step="1" value="1"></label>
+        <p id="flow-copy-summary" class="hint" aria-live="polite"></p>
+        <p class="hint">名称自动追加「-副本1、-副本2…」，流程、节点和连线均生成新的 UUID。名称重名时自动顺延。</p>
+        <label class="check"><input id="flow-copy-schedule" type="checkbox">沿用原流程的定时启用状态</label>
+        <p class="hint">默认保留定时配置，副本的定时处于关闭状态。</p>
+      </div>
+      <p id="flow-copy-error" class="form-error" aria-live="polite"></p>
+      <div class="modal-actions"><button type="button" class="btn" data-act="close-flow-copy">取消</button><button type="button" class="btn primary" data-act="submit-flow-copy">开始复制</button></div>
+    </div>
+  </div>
+  <div id="element-dialog" class="modal-backdrop hidden">
+    <div class="modal wide" role="dialog" aria-labelledby="element-dialog-title">
+      <header>
+        <div>
+          <h2 id="element-dialog-title">编辑元素</h2>
+          <p id="element-dialog-id" class="hint"></p>
+        </div>
+        <button type="button" class="close-btn" data-act="close-element" aria-label="关闭">×</button>
+      </header>
+      <div id="element-dialog-body"></div>
+      <p id="element-dialog-error" class="form-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-act="close-element">取消</button>
+        <button type="button" class="btn primary" data-act="save-element">保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="result-dialog" class="modal-backdrop hidden">
+    <div class="modal wide" role="dialog" aria-labelledby="result-dialog-title">
+      <header>
+        <div>
+          <h2 id="result-dialog-title">编辑结果</h2>
+          <p id="result-dialog-id" class="hint"></p>
+        </div>
+        <button type="button" class="close-btn" data-act="close-result" aria-label="关闭">×</button>
+      </header>
+      <div id="result-dialog-body"></div>
+      <p id="result-dialog-error" class="form-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-act="close-result">取消</button>
+        <button type="button" class="btn primary" data-act="save-result">保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="conn-dialog" class="modal-backdrop hidden">
+    <div class="modal narrow" role="dialog" aria-labelledby="conn-title">
+      <header>
+        <div>
+          <h2 id="conn-title">建立连线</h2>
+          <p><b id="conn-source"></b> → <b id="conn-target"></b></p>
+        </div>
+        <button type="button" class="close-btn" data-act="cancel-connection" aria-label="关闭">×</button>
+      </header>
+      <p class="hint">选择带给下游的普通字段。节点配置的携带参数会自动沿连线传递。</p>
+      <div id="conn-fields"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-act="cancel-connection">取消</button>
+        <button type="button" class="btn primary" data-act="confirm-connection">创建</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast-root" aria-live="polite"></div>
+  <dialog id="confirm-dialog" class="modal confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <header><h2 id="confirm-title">请确认</h2></header>
+    <p id="confirm-message"></p>
+    <form method="dialog" class="modal-actions">
+      <button type="submit" class="btn" value="cancel" autofocus>取消</button>
+      <button type="submit" class="btn primary" value="confirm">确认</button>
+    </form>
+  </dialog>
+  <div id="batch-run-dialog" class="modal-backdrop hidden">
+    <div class="modal wide batch-run-modal" role="dialog" aria-modal="true" aria-labelledby="batch-run-title" aria-describedby="batch-run-hint">
+      <header><div><h2 id="batch-run-title">批量执行</h2><p id="batch-run-hint">按勾选顺序启动，同一轮内并发执行；全部完成后进入下一轮。</p></div><button type="button" class="close-btn" data-act="close-batch-run" aria-label="关闭批量执行">×</button></header>
+      <div class="batch-run-body">
+        <div id="batch-run-selection" class="batch-selection"></div>
+        <p class="hint" id="batch-concurrency-hint"></p>
+        <div class="batch-mode" role="group" aria-label="执行方式">
+          <label><input type="radio" name="batch-mode" value="now" checked><span><strong>立即执行</strong><small>提交后按配置并发执行</small></span></label>
+          <label><input type="radio" name="batch-mode" value="schedule"><span><strong>定时执行</strong><small>在设定时间启动整批流程</small></span></label>
+        </div>
+        <label class="field"><span>循环执行次数</span><input id="batch-repeat" type="number" min="1" max="50" step="1" value="1"></label>
+        <div id="batch-schedule-fields" class="batch-schedule hidden">
+          <div class="batch-field-grid">
+            <label class="field"><span>执行频率</span><select id="batch-frequency"><option value="once">仅执行一次</option><option value="daily">每天</option><option value="weekdays">工作日</option><option value="weekly">每周</option></select></label>
+            <label class="field" id="batch-date-field"><span>执行日期</span><input id="batch-date" type="date"></label>
+            <label class="field"><span>定时时间</span><input id="batch-time" type="time"></label>
+          </div>
+          <div id="batch-weekdays" class="batch-weekdays hidden" role="group" aria-label="每周执行日">
+            <label><input type="checkbox" value="1">周一</label><label><input type="checkbox" value="2">周二</label><label><input type="checkbox" value="3">周三</label><label><input type="checkbox" value="4">周四</label><label><input type="checkbox" value="5">周五</label><label><input type="checkbox" value="6">周六</label><label><input type="checkbox" value="0">周日</label>
+          </div>
+          <p class="hint">按本机时间执行；程序需保持打开。错过的定时会在下次打开时补跑一批。</p>
+        </div>
+        <label class="check"><input id="batch-continue" type="checkbox">某个流程失败后，继续执行其余流程</label>
+        <p id="batch-run-summary" class="batch-summary" aria-live="polite"></p>
+      </div>
+      <p id="batch-run-error" class="form-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" class="btn" data-act="close-batch-run">取消</button><button type="button" class="btn primary" data-act="submit-batch-run">开始批量执行</button></div>
+    </div>
+  </div>
+  <div id="run-dialog" class="modal-backdrop hidden">
+    <div class="modal narrow" role="dialog" aria-labelledby="run-title">
+      <header>
+        <div>
+          <h2 id="run-title">循环执行</h2>
+          <p>次数为 1 时只跑一遍。大于 1 时按顺序循环，每次都会重新随机参考图。</p>
+        </div>
+        <button type="button" class="close-btn" data-dismiss="run" aria-label="关闭">×</button>
+      </header>
+      <label class="field"><span>循环次数</span><input id="run-repeat" type="number" min="1" max="50" value="1"></label>
+      <label class="field"><span>本次主题</span><input id="run-theme" placeholder="例如 海边夜灯"></label>
+      <label class="field"><span>保存路径</span><input id="run-output-dir" spellcheck="false" placeholder="例如 D:\壁纸\可爱，留空则用打包节点里的路径"></label>
+      <label class="field"><span>保存方式</span>
+        <select id="run-save-as">
+          <option value="">沿用打包节点</option>
+          <option value="zip">ZIP</option>
+          <option value="library">结果库</option>
+          <option value="both">ZIP 和结果库</option>
+        </select>
+      </label>
+      <div class="row"><button type="button" class="btn" data-act="pick-output-dir" data-target="run">选择文件夹</button></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-dismiss="run">取消</button>
+        <button type="button" class="btn primary" id="run-go">循环执行</button>
+      </div>
+    </div>
+  </div>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+  <input id="table-file" type="file" accept=".xlsx,.csv,.tsv" hidden>
+  <div id="reference-zip-dialog" class="modal-backdrop hidden">
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="reference-zip-title">
+      <header>
+        <div><h2 id="reference-zip-title">ZIP 批量导入参考图</h2><p class="hint">分组、标签和说明应用于本次导入的全部图片，均可留空。</p></div>
+        <button type="button" class="close-btn" data-act="close-reference-zip" aria-label="关闭">×</button>
+      </header>
+      <div id="reference-zip-body">
+        <label class="field"><span>ZIP 压缩包</span><input id="reference-zip-file" type="file" accept=".zip,application/zip"></label>
+        <p class="hint">扫描子文件夹，支持 PNG、JPG、JPEG、WebP、GIF。ZIP 最大 200MB，每次最多 2000 张，单图最大 15MB。</p>
+        <label class="field"><span>分组（可选）</span><input id="reference-zip-group" list="reference-zip-groups" placeholder="留空则不分组"></label>
+        <datalist id="reference-zip-groups"></datalist>
+        <label class="field"><span>标签（可选，用逗号分隔）</span><input id="reference-zip-tags" placeholder="例如 壁纸，风景"></label>
+        <label class="field"><span>说明（可选）</span><textarea id="reference-zip-note" rows="4" placeholder="填写这批参考图的统一说明"></textarea></label>
+      </div>
+      <p id="reference-zip-error" class="form-error" aria-live="polite"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-act="close-reference-zip">取消</button>
+        <button type="button" class="btn primary" data-act="submit-reference-zip">开始导入</button>
+      </div>
+    </div>
+  </div>
+  <div id="run-record-dialog" class="modal-backdrop hidden">
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="run-record-title">
+      <header><h2 id="run-record-title">编辑运行记录</h2><button type="button" class="close-btn" data-act="close-run-record" aria-label="关闭">×</button></header>
+      <div id="run-record-body"></div>
+      <p id="run-record-error" class="form-error"></p>
+      <div class="modal-actions"><button type="button" class="btn" data-act="close-run-record">取消</button><button type="button" class="btn primary" data-act="save-run-record">保存</button></div>
+    </div>
+  </div>
+  <template id="guide-template">
+    <div class="guide">
+      <section class="panel">
+        <div class="panel-title"><h2>节点做事，元素可换</h2></div>
+        <p>领域、主题、参考图、参考文章、参考文案、提示词、生图配置组、模型、输出位置和规则都是元素。挂到节点或连线上，随时能换。</p>
+      </section>
+      <section class="panel">
+        <div class="panel-title"><h2>案例：公众号壁纸文章</h2><small>六步，字段沿连线传递</small></div>
+        <div class="pipeline">
+          <div class="pipe"><div class="pipe-name"><span class="step-num">01</span>选取主题</div><small>带上领域</small></div>
+          <div class="pipe"><div class="pipe-name"><span class="step-num">02</span>标题提示词</div><small>主题填进模板</small></div>
+          <div class="pipe"><div class="pipe-name"><span class="step-num">03</span>生成标题</div><small>参考文章与文案</small></div>
+          <div class="pipe"><div class="pipe-name"><span class="step-num">04</span>生成文章</div><small>用文章提示词</small></div>
+          <div class="pipe"><div class="pipe-name"><span class="step-num">05</span>生成图片</div><small>配置组与参考图</small></div>
+          <div class="pipe active"><div class="pipe-name"><span class="step-num">06</span>文件输出</div><small>文件夹与 ZIP</small></div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-title"><h2>用参考图参数生成作品</h2></div>
+        <p>需要同时参考多张图时，添加「多参考图生成提示词」。先在分组、标签筛选中勾选候选图，再分别设置随机参考图数量 N 和提示词生成条数。本轮每条请求共同参考同一组 N 张图，不重复抽取，不足时提示补选。</p>
+        <p>多图节点可选择「多张参考图说明（合并）」AS <code>title</code>，也可用首张图说明命名；执行详情会展示全部入选图，每张图成功后增加一次使用次数。</p>
+        <p>需要固定作品名称时，在上游节点的「携带参数」中选择「固定文案」，填写「暗黑系壁纸分享」，AS 参数名填写 <code>title</code>。最后的作品名称模板保持 <code>${title}</code>，即可生成对应名称的文件夹和 ZIP。</p>
+        <p>在「参考生成提示词」节点的「携带参数」中，添加「参考图名称」或「参考图说明」AS <code>title</code>（也可填 <code>${title}</code>）。值来自这次实际选中的参考图，之后自动沿连线传到末尾。</p>
+        <p>连接「参考生成提示词 → 生成图片 → 生成作品」，普通字段依次勾选 <code>prompts</code>、<code>images</code>。中间节点无需重复配置 title。</p>
+        <p>「生成作品」的作品名称模板默认是 <code>${title}</code>。例如 title 是「春日壁纸」，就生成「春日壁纸」文件夹和「春日壁纸.zip」，ZIP 内含同名文件夹及全部输出图片。保存路径可选，重名自动追加编号。名称参数为空或缺失会提示检查上游配置。</p>
+      </section>
+      <div class="guide-grid">
+        <section class="panel">
+          <div class="panel-title"><h2>字段怎么往下走</h2></div>
+          <p>点节点右侧的出口，再点下一个节点的入口。连线右侧列出携带的普通字段；节点配置的携带参数会沿连线自动传递。</p>
+          <p>文本节点和生图节点如果在入口里看到 prompt.text，就用这份提示词，盖过节点自己导入的提示词。标题提示词不要带进写文章那一段。</p>
+          <p>勾选「把入口字段留在出口」后，旧字段还留在这个节点的出口里，后面的连线可以继续挑选。</p>
+        </section>
+        <section class="panel">
+          <div class="panel-title"><h2>规则、模型、定时</h2></div>
+          <p>规则可以挂在连线上，也可以挂在节点执行前、执行后。案例里的「必须有标题」会在没标题时停掉后半段。</p>
+          <p>参考图生成提示词必须调用生文模型，要先填模型名和密钥。标题、文章和生图在没配模型时仍生成本地草稿。密钥留在本机，导出文件里没有。</p>
+          <p>生图按画风生图调用接口，只提交提示词和尺寸，不上传参考图。参考图只用来生成提示词。定时可选每天、工作日、每周或只跑一次。程序开着才会到点执行，错过的一次会在下次打开时补跑。</p>
+          <p>每个「生成图片」节点都可以选择整批统一尺寸。头像默认 1024×1024，壁纸默认 1080×1920，提供方图、竖图、全面屏、横屏等预设及自定义宽高。节点设置优先于提示词和配置组，接口返回尺寸不符时等比缩放并用模糊背景补边，保证进入结果库和 ZIP 的图片尺寸一致。旧节点未设置时按流程名称识别头像，其余使用壁纸默认；自定义宽高范围为 256–4096 像素。</p>
+        </section>
+      </div>
+    </div>
+  </template>
+  <script src="/app.js"></script>
+</body>
+</html>

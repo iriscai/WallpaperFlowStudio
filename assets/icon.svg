@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="base" x1="24" y1="20" x2="228" y2="244" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7266E9"/>
+      <stop offset="1" stop-color="#253563"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="103" y1="80" x2="177" y2="208" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C5C8FF"/>
+      <stop offset="0.55" stop-color="#A1D9E1"/>
+      <stop offset="1" stop-color="#E1F4E8"/>
+    </linearGradient>
+    <clipPath id="screen"><rect x="93" y="78" width="94" height="135" rx="13"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#base)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" stroke="white" stroke-opacity="0.16"/>
+  <g transform="rotate(-12 110 130)">
+    <rect x="49" y="47" width="112" height="155" rx="21" fill="#ABBCF3"/>
+    <rect x="59" y="57" width="92" height="135" rx="12" fill="#7A88CB"/>
+    <path d="M59 164L91 126L119 153L151 120V180Q151 192 139 192H71Q59 192 59 180Z" fill="#C7D4F8" fill-opacity="0.65"/>
+  </g>
+  <rect x="81" y="71" width="118" height="156" rx="23" fill="#19264C" fill-opacity="0.23"/>
+  <rect x="83" y="68" width="114" height="155" rx="22" fill="#F7FAFF"/>
+  <g clip-path="url(#screen)">
+    <rect x="93" y="78" width="94" height="135" rx="13" fill="url(#sky)"/>
+    <circle cx="160" cy="111" r="13" fill="#FFF2CB"/>
+    <path d="M82 184L122 129Q125 126 128 130L170 184V221H82Z" fill="#5F8DA6"/>
+    <path d="M112 148L122 129Q125 126 128 130L139 145L130 142L125 146L120 143Z" fill="#F0F5FA"/>
+    <path d="M116 221L158 156Q161 152 165 156L199 194V221Z" fill="#387E83"/>
+    <path d="M83 198Q117 173 147 194Q171 212 195 187V221H83Z" fill="#82C2B3"/>
+  </g>
+  <path d="M199 33L205.5 51.5L224 58L205.5 64.5L199 83L192.5 64.5L174 58L192.5 51.5Z" fill="#FFE3A0"/>
+  <circle cx="224" cy="91" r="4" fill="#DBE4FF"/>
+</svg>

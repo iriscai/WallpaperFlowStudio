@@ -1,0 +1,14 @@
+{
+  "name": "wallpaperflowstudio",
+  "productName": "壁纸生创流程台",
+  "version": "0.1.0",
+  "description": "壁纸生创流程台桌面工作台",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "31.7.7"
+  }
+}

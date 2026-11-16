@@ -1,0 +1,30 @@
+data/
+metadata/
+reports/
+resources/examples/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local databases, logs and build output
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+dist/
+build/
+coverage/
+.DS_Store
+Thumbs.db
